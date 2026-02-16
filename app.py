@@ -364,4 +364,78 @@ def cadastrar_questao():
         conn = conectar()
         cursor = conn.cursor()
         try:
-            cursor.execute("INSERT INTO questoes (banca, materia, ano, questao, tipo, gabarito, pegad
+                        cursor.execute("INSERT INTO questoes (banca, materia, ano, questao, tipo, gabarito, pegadinha) VALUES (?, ?, ?, ?, ?, ?, ?)", (banca, materia, ano, questao, tipo, gabarito, pegadinha))
+            conn.commit()
+            st.success("Questão cadastrada!")
+        except sqlite3.IntegrityError:
+            st.error("Questão já existe (texto duplicado).")
+        except Exception as e:
+            st.error(f"Erro ao cadastrar questão: {e}")
+        finally:
+            conn.close()
+
+# =============================================================================
+# MENU PRINCIPAL
+# =============================================================================
+
+def main():
+    st.set_page_config(page_title="App Concursos 2026", layout="wide")
+    st.title("📚 App de Estudos para Concursos Públicos 2026")
+
+    # Verifica se usuário está logado
+    if 'usuario_id' not in st.session_state:
+        tab1, tab2 = st.tabs(["Login", "Cadastro"])
+        with tab1:
+            fazer_login()
+        with tab2:
+            cadastrar_usuario()
+        return
+
+    # Menu lateral
+    st.sidebar.success(f"Olá, {st.session_state.nome}!")
+    menu = st.sidebar.selectbox(
+        "Menu Principal",
+        ["🏠 Início", "📝 Fazer Simulado", "📊 Análise de Padrões", "📋 Histórico", "➕ Cadastrar Questão", "🚪 Sair"]
+    )
+
+    if menu == "🚪 Sair":
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+
+    elif menu == "🏠 Início":
+        st.write("Bem-vindo ao seu app de estudos para concursos públicos!")
+        st.write("Escolha uma opção no menu lateral para começar.")
+        concursos = obter_lista_concursos()
+        st.subheader("📅 Concursos Atualizados 2026")
+        for c in concursos:
+            st.write(f"**{c['nome']}** - Status: {c['status']} | Banca: {c['banca']} | Vagas: {c['vagas']} | Salário: {c['salario']}")
+
+    elif menu == "📝 Fazer Simulado":
+        st.header("📝 Gerar Simulado")
+        concursos = obter_lista_concursos()
+        concurso_escolhido = st.selectbox("Escolha o concurso", [c["nome"] for c in concursos])
+        concurso_info = next(c for c in concursos if c["nome"] == concurso_escolhido)
+
+        st.info(f"Status: {concurso_info['status']} | Banca provável: {concurso_info['banca']}")
+
+        banca = st.selectbox("Escolha a banca para o simulado", ["CESPE", "FGV"])
+        materia = st.selectbox("Matéria", ["Portugues", "Raciocinio Logico"])
+
+        if st.button("Gerar Simulado"):
+            with st.spinner("Gerando simulado..."):
+                gerar_simulado(banca, materia, st.session_state.usuario_id, concurso_escolhido)
+
+    elif menu == "📊 Análise de Padrões":
+        st.header("📊 Análise de Padrões e Pegadinhas")
+        analisar_padroes(st.session_state.usuario_id)
+
+    elif menu == "📋 Histórico":
+        st.header("📋 Histórico de Simulados")
+        listar_historico(st.session_state.usuario_id)
+
+    elif menu == "➕ Cadastrar Questão":
+        cadastrar_questao()
+
+if __name__ == "__main__":
+    main()
